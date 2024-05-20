@@ -7,33 +7,33 @@ class Scalar:
         self.data: float = data
         self.grad: float = 0
         self.prev: tuple["Scalar"] = prev
-        self._backward = lambda: None
+        self._backward = lambda: None  # type: ignore
 
     def __repr__(self) -> str:
         return f"Scalar(data={self.data})"
 
-    def __add__(self, other: "Scalar") -> "Scalar":
+    def __add__(self, other: "Scalar" | float) -> "Scalar":
         if not isinstance(other, Scalar):
             other = Scalar(other)
 
-        def _backward(prev: tuple["Scalar", "Scalar"], d_out) -> tuple[float]:
+        def _backward(prev: tuple["Scalar", "Scalar"], d_out) -> tuple[float, float]:
             return d_out, d_out
 
         out = Scalar(self.data + other.data, prev=(self, other))
-        out._backward = _backward
+        out._backward = _backward  # type: ignore
 
         return out
 
-    def __mul__(self, other: "Scalar") -> "Scalar":
+    def __mul__(self, other: "Scalar" | float) -> "Scalar":
         if not isinstance(other, Scalar):
             other = Scalar(other)
 
-        def _backward(prev: tuple["Scalar", "Scalar"], d_out) -> tuple[float]:
+        def _backward(prev: tuple["Scalar", "Scalar"], d_out) -> tuple[float, float]:
             lval, rval = prev
             return rval.data * d_out, lval.data * d_out
 
         out = Scalar(self.data * other.data, prev=(self, other))
-        out._backward = _backward
+        out._backward = _backward  # type: ignore
 
         return out
 
@@ -46,7 +46,7 @@ class Scalar:
             return (other * (val.data ** (other - 1)) * d_out,)
 
         out = Scalar(self.data**other, prev=(self, other))
-        out._backward = _backward
+        out._backward = _backward  # type: ignore
         return out
 
     def sigmoid(self) -> "Scalar":
@@ -59,7 +59,7 @@ class Scalar:
             return (d_sigmoid,)
 
         out = Scalar(sigmoid_fn(self.data), (self,))
-        out._backward = _backward
+        out._backward = _backward  # type: ignore
         return out
 
     def tanh(self) -> "Scalar":
@@ -68,7 +68,7 @@ class Scalar:
             return (d_tanh,)
 
         out = Scalar(math.tanh(self.data), (self,))
-        out._backward = _backward
+        out._backward = _backward  # type: ignore
 
         return out
 
@@ -100,7 +100,7 @@ class Scalar:
     def in_chain(self):
         return len(self.prev) > 0
 
-    def _backward():
+    def _backward(self, *args):
         """
         Function attached to every arithmetic operation to calculate the derivative in the chain
 
