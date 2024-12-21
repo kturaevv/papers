@@ -70,6 +70,40 @@ def conv2d_naive_vec(
     return jax.numpy.dot(windows_flat, kernel_flat).reshape(y_out, x_out)
 
 
+def conv2d(x: jax.Array, kernel: jax.Array, stride: int = 1, padding: int = 0):
+    assert (
+        x.shape[0] == kernel.shape[0]
+    ), f"Input channels {x.shape[0]} and kernel input channels {kernel.shape[0]} do not match!"
+    assert x.ndim == 3, f"Input should be of 3 dimensions CHW, got {x.ndim}"
+    assert kernel.ndim == 4, f"Kernel should be of 4 dimensions IOHW, got {kernel.ndim}"
+    # Padding
+    x = jax.numpy.pad(
+        x, ((0, 0), (padding, padding), (padding, padding)), mode="constant"
+    )
+    out_h = ((x.shape[1] - kernel.shape[2]) // stride) + 1
+    out_w = ((x.shape[2] - kernel.shape[3]) // stride) + 1
+    # Window indices
+    y_axis, x_axis = jax.numpy.meshgrid(
+        jax.numpy.arange(out_h), jax.numpy.arange(out_w), indexing="ij"
+    )
+    kh, kw = jax.numpy.meshgrid(
+        jax.numpy.arange(kernel.shape[2]),
+        jax.numpy.arange(kernel.shape[3]),
+        indexing="ij",
+    )
+    # Calculate windows indices
+    wy = (y_axis[..., None, None] + kh) * stride
+    wx = (x_axis[..., None, None] + kw) * stride
+    # Index windows for each channel
+    windows = x[:, wy, wx]
+    # Reshape for batch matrix multiplication
+    windows_reshaped = windows.reshape(out_h, out_w, -1)
+    kernel_reshaped = kernel.reshape(kernel.shape[1], -1).T
+    # Perform convolution
+    result = jax.numpy.dot(windows_reshaped, kernel_reshaped)
+    return result.transpose(2, 0, 1)
+
+
 if __name__ == "__main__":
     keys = key_manager(0)
 
@@ -100,3 +134,14 @@ if __name__ == "__main__":
     # %timeit conv2d_naive_vec(arr2d, kernel)
     # %timeit conv2d_naive_vec_jit(arr2d, kernel)
     # %timeit conv2d_naive_vec_jit_vmap(barr2d, bkernel)
+
+    # Test
+    key = jax.random.PRNGKey(0)
+    in_channels, out_channels = 3, 5
+    arr2d = jax.random.normal(key, (in_channels, 28, 28))
+    key, subkey = jax.random.split(key)
+    kern = jax.random.normal(subkey, (in_channels, out_channels, 3, 3))
+    result = conv2d(arr2d, kern, stride=1)
+    print(f"Input shape: {arr2d.shape}")
+    print(f"Kernel shape: {kern.shape}")
+    print(f"Output shape: {result.shape}")
